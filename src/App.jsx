@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import Logo from "./assets/Vector.png";
 import { FaSearch } from "react-icons/fa";
 
 const App = () => {
@@ -32,12 +31,42 @@ const App = () => {
     }
   };
 
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          axios
+            .get(
+              `https://api.openweathermap.org/data/2.5/forecast?lat=${latitude}&lon=${longitude}&units=${unit}&appid=${apiKey}`
+            )
+            .then((response) => {
+              setData(response.data);
+              setError("");
+            })
+            .catch((error) => {
+              setError("Failed to fetch weather data for your location.");
+              setData({});
+              console.log(error);
+            });
+        },
+        () => {
+          setError("Failed to retrieve your location.");
+        }
+      );
+    } else {
+      setError(
+        "Geolocation is not supported by your browser. Please enter a location manually."
+      );
+    }
+  };
+
   useEffect(() => {
-    searchLocation();
-  }, [unit]); // Trigger a search when the unit changes
+    getCurrentLocation();
+  }, []); // Only fetch the user's location once
 
   const toggleUnit = () => {
-    setUnit(unit === "metric" ? "imperial" : "metric");
+    setUnit((prevUnit) => (prevUnit === "metric" ? "imperial" : "metric"));
   };
 
   const renderForecast = () => {
@@ -52,7 +81,7 @@ const App = () => {
           const temperature =
             unit === "metric"
               ? forecast.main.temp.toFixed()
-              : convertToFahrenheit(forecast.main.temp).toFixed();
+              : convertTemperature(forecast.main.temp).toFixed();
           const description = forecast.weather[0].description;
 
           acc[forecastDate] = {
@@ -85,7 +114,7 @@ const App = () => {
     }
   };
 
-  const convertToFahrenheit = (celsius) => {
+  const convertTemperature = (celsius) => {
     return (celsius * 9) / 5 + 32;
   };
 
@@ -121,7 +150,12 @@ const App = () => {
             {unit === "metric" ? "°C" : "°F"}
           </button>
         </div>
-        {error && error !== "Please enter a location." && (
+        {error && error !== "Please enter a location." && !unit && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+            {error}
+          </div>
+        )}
+        {error === "Please enter a valid location." && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
             {error}
           </div>
@@ -133,7 +167,6 @@ const App = () => {
             </p>
           )}
         </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {renderForecast()}
         </div>
