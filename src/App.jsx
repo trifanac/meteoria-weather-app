@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Logo from "./assets/Vector.png";
+import { FaSearch } from "react-icons/fa";
 
 const App = () => {
   const apiKey = import.meta.env.VITE_API_KEY;
@@ -8,8 +9,9 @@ const App = () => {
   const [data, setData] = useState({});
   const [location, setLocation] = useState("");
   const [error, setError] = useState("");
+  const [unit, setUnit] = useState("metric"); // Default unit is metric (Celsius)
 
-  const url = `https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${apiKey}`;
+  const url = `https://api.openweathermap.org/data/2.5/forecast?q=${location}&units=${unit}&appid=${apiKey}`;
 
   const searchLocation = () => {
     if (location) {
@@ -30,14 +32,72 @@ const App = () => {
     }
   };
 
-  return (
-    <div className="bg-gradient-to-br from-cyan-500 to bg-yellow-500 min-h-screen flex flex-col items-center justify-center">
-      <div className="bg-white rounded p-8 shadow-lg w-full sm:max-w-md">
-        <div className="flex items-center justify-center mb-6">
-          <img src={Logo} alt="" className="w-1/5" />
-        </div>
+  useEffect(() => {
+    searchLocation();
+  }, [unit]); // Trigger a search when the unit changes
 
-        <div className="flex items-center justify-center mb-6">
+  const toggleUnit = () => {
+    setUnit(unit === "metric" ? "imperial" : "metric");
+  };
+
+  const renderForecast = () => {
+    if (data.city) {
+      const today = new Date().toLocaleDateString();
+      const forecastData = data.list.reduce((acc, forecast) => {
+        const date = new Date(forecast.dt_txt);
+        const forecastDate = date.toLocaleDateString();
+
+        if (!acc[forecastDate]) {
+          const day = date.toLocaleDateString(undefined, { weekday: "short" });
+          const temperature =
+            unit === "metric"
+              ? forecast.main.temp.toFixed()
+              : convertToFahrenheit(forecast.main.temp).toFixed();
+          const description = forecast.weather[0].description;
+
+          acc[forecastDate] = {
+            day,
+            temperature,
+            description,
+          };
+        }
+
+        return acc;
+      }, {});
+
+      return Object.entries(forecastData).map(([date, forecast]) => {
+        const isToday = date === today;
+
+        return (
+          <div className="bg-white rounded-lg shadow-md p-6" key={date}>
+            <h3 className="text-lg font-bold mb-1">
+              {isToday ? "Today" : forecast.day}
+            </h3>
+            <p className="text-gray-700 mb-2">{forecast.description}</p>
+            <h3 className="text-xl font-bold text-blue-800">
+              {forecast.temperature} {unit === "metric" ? "°C" : "°F"}
+            </h3>
+          </div>
+        );
+      });
+    } else {
+      return null;
+    }
+  };
+
+  const convertToFahrenheit = (celsius) => {
+    return (celsius * 9) / 5 + 32;
+  };
+
+  return (
+    <div className="bg-blue-200 min-h-screen flex items-center justify-center">
+      <div className="bg-blue-50 rounded-lg p-8 shadow-lg w-full sm:max-w-md">
+        <div className="flex justify-center items-center mb-6">
+          <div>
+            <h1 className="text-blue-500 font-bold text-4xl">Meteoria</h1>
+          </div>
+        </div>
+        <div className="flex items-stretch justify-center mb-6">
           <input
             value={location}
             onChange={(event) => setLocation(event.target.value)}
@@ -50,46 +110,32 @@ const App = () => {
           />
           <button
             onClick={searchLocation}
-            className="bg-cyan-500 text-white py-4 px-6 rounded-r focus:outline-none hover:bg-cyan-600 transition duration-300"
+            className="bg-blue-500 text-white px-6 rounded-r focus:outline-none hover:bg-blue-600 transition duration-300 mr-2"
           >
-            Search
+            <FaSearch />
+          </button>
+          <button
+            onClick={toggleUnit}
+            className="bg-blue-500 text-white px-6 rounded focus:outline-none hover:bg-blue-600 transition duration-300"
+          >
+            {unit === "metric" ? "°C" : "°F"}
           </button>
         </div>
-        {error && (
+        {error && error !== "Please enter a location." && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
             {error}
           </div>
         )}
-        <div className="grid grid-cols-1 gap-6">
-          <div className="flex flex-col items-center justify-center">
-            {data.name && (
-              <h2 className="text-3xl font-bold text-cyan-500 mb-4">
-                {data.name}
-              </h2>
-            )}
-            {data.main && (
-              <h3 className="text-5xl font-bold text-cyan-700">
-                {data.main.temp.toFixed()} °C
-              </h3>
-            )}
-          </div>
-          <div className="flex flex-col items-center justify-center">
-            {data.main && (
-              <div>
-                <h3 className="text-2xl text-gray-800 mb-2">
-                  Feels Like: {data.main.feels_like.toFixed()} °C
-                </h3>
-                <h3 className="text-2xl text-gray-800 mb-2">
-                  Humidity: {data.main.humidity} %
-                </h3>
-                {data.wind && (
-                  <h3 className="text-2xl text-gray-800">
-                    Wind Speed: {data.wind.speed} KM/H
-                  </h3>
-                )}
-              </div>
-            )}
-          </div>
+        <div className="flex items-center mb-4">
+          {data.city && (
+            <p className="text-gray-700">
+              Location: {data.city.name}, {data.city.country}
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {renderForecast()}
         </div>
       </div>
     </div>
